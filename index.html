@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>jQuery Paint</title>
+    <link rel="stylesheet" href="./jquery-ui.css">
+    <link rel="stylesheet" href="external/jquery.ui.rotatable.css">
+    <link rel="stylesheet" href="external/spectrum/spectrum.css">
+
+    <style>
+        #resizable {
+            width: 150px;
+            height: 150px;
+            padding: 0.5em;
+        }
+
+        #resizable h3 {
+            text-align: center;
+            margin: 0;
+        }
+    </style>
+
+    <style>
+        .toolbar {
+            display: flex;
+        }
+
+        .toolbar-tool {
+            border: 1px solid grey;
+            height: 20px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .shape-tools {
+            display: flex;
+        }
+
+        .toolbar-tool.active {
+            background: grey;
+        }
+
+        .proofing-container {
+            width: 600px;
+            height: 400px;
+            border: 2px solid black;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .shape {
+            display: inline-block;
+
+            position: absolute !important;
+            cursor: move;
+        }
+
+        .shape.rectangle {
+            width: 50px;
+            height: 50px;
+            border: 2px;
+            border-style:solid ;
+        }
+
+        .shape.circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px;
+            border-style:solid ;
+        }
+
+        .shape.line {
+            width: 50px;
+            max-height: 0;
+            border: 1px;
+            border-style:solid ;
+        }
+
+        .shape.arrow {
+            width: 50px;
+            max-height: 0;
+            border: 1px;
+            border-style:solid ;
+        }
+
+        .shape.arrow:after {
+            width: 0;
+            height: 0;
+            border-top: 5px solid transparent;
+            border-left: 5px;
+            border-left-style: solid;
+            border-bottom: 5px solid transparent;
+            position: absolute;
+            content: '';
+            top: 50%;
+            -webkit-transform: translatey(-50%);
+            -moz-transform: translatey(-50%);
+            -ms-transform: translatey(-50%);
+            transform: translatey(-50%);
+            right: -3px;
+        }
+
+        .ui-resizable-helper {
+            border: 2px dotted #00F;
+        }
+
+        .ui-rotatable-handle.ui-draggable {
+            width: 10px;
+            height: 10px;
+            position: absolute;
+            left: -10px;
+
+        }
+
+        .selected-shape .ui-resizable-handle.ui-resizable-n:after,
+        .selected-shape .ui-resizable-handle.ui-resizable-e:after,
+        .selected-shape .ui-resizable-handle.ui-resizable-w:after,
+        .selected-shape .ui-resizable-handle.ui-resizable-s:after {
+            position: absolute;
+            content: "";
+            width: 7px;
+            height: 7px;
+            left: 50%;
+            transform: translate(-50%);
+            background-color: blue;
+
+        }
+
+        .selected-shape .ui-resizable-handle.ui-resizable-s:after, .selected-shape .ui-resizable-handle.ui-resizable-n:after {
+            top: 0;
+        }
+
+        .selected-shape .ui-resizable-handle.ui-resizable-w:after, .selected-shape .ui-resizable-handle.ui-resizable-e:after {
+            top: calc(50% - 4px);
+        }
+
+        .selected-shape .ui-resizable-handle.ui-resizable-sw, .selected-shape .ui-resizable-handle.ui-resizable-ne, .selected-shape .ui-resizable-handle.ui-resizable-nw {
+            background-color: blue;
+        }
+
+        .selected-shape .ui-resizable-handle.ui-resizable-se {
+            width: 9px !important;
+            height: 9px !important;
+            bottom: -4px;
+            right: -5px;
+            background: none;
+            background-color: blue;
+        }
+
+        .ui-rotatable-handle {
+            background: none;
+        }
+
+        .selected-shape .ui-rotatable-handle:before {
+            content: "";
+            position: absolute;
+            width: 2px;
+            background-color: blue;
+            height: 25px;
+            left: 4px;
+            top: 4px;
+        }
+
+        .ui-rotatable-handle.ui-draggable {
+            top: -30px;
+            left: 50%;
+            transform: translate(-50%);
+        }
+
+        .selected-shape .ui-rotatable-handle {
+            background: none;
+            background-color: blue;
+        }
+
+        .proofed-image-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .proofed-image {
+            width: 100%;
+        }
+
+
+    </style>
+</head>
+<body>
+
+
+<div class="toolbar">
+    <div class="shape-tools">
+        <div will-add-shape="circle" class="toolbar-tool circle">circle</div>
+        <div will-add-shape="rectangle" class="toolbar-tool rectangle">Rectangle</div>
+        <div will-add-shape="line" class="toolbar-tool line">Line</div>
+        <div will-add-shape="arrow" class="toolbar-tool arrow">Arrow</div>
+    </div>
+    <div class="color-tool">
+        <input type='text' id="colorpicker"/>
+    </div>
+</div>
+
+<div class="proofing-container">
+    <div class="proofed-image-wrapper">
+        <img class="proofed-image" src="./images/BrockLesnar.jpg">
+    </div>
+</div>
+
+
+<div>
+    <button class="save"> Save</button>
+</div>
+
+<script src="./external/jquery/jquery.js"></script>
+<script src="jquery-ui.js"></script>
+<script src="external/jquery.ui.rotatable.min.js"></script>
+<script src="external/spectrum/spectrum.js"></script>
+
+<script>
+    var $container = $(".proofing-container");
+    var shape = {
+        id: '',
+        shape: '',
+        position: '',
+        width: '',
+        height: '',
+        color: ''
+    };
+    var mouseDownCallback = function (e) {
+        if (e.ctrlKey == 0) {
+            $container.children().removeClass('selected-shape');
+        }
+        $(this).addClass('selected-shape');
+
+    };
+
+
+    function activate(){
+        reconstructShapes();
+
+        $container.on('mousedown', '.shape', mouseDownCallback);
+
+        $container.on('click', function(e){
+
+            if(event.target===this){
+                debugger;
+                removeSelected();
+            }
+
+        });
+
+
+        $("#colorpicker").spectrum({
+            preferredFormat: "hex",
+            color: "#ccc",
+            change: function (color) {
+                setColor(getCurrentShape(), color.toHexString());
+            },
+            move: function (color) {
+                setColor(getCurrentShape(), color.toHexString());
+            },
+            hide: function () {
+                setColor(getCurrentShape(), getSelectedColor());
+            }
+        });
+        $("[will-add-shape]").on("click", function () {
+
+            removeSelected($container);
+            var id = $(".shape").length + 1;
+            var shape = $(this).attr('will-add-shape');
+
+            var createShapeDOM = makeShape({
+                id: id,
+                shape: shape,
+                container: $container,
+                color: getSelectedColor(),
+                position: {
+                    left: 50,
+                    top: 50
+                },
+                width: 100,
+                height: 100
+            });
+            createShapeDOM.addClass('selected-shape');
+
+
+        });
+        $(window).on("keydown", function (e) {
+            if (e.keyCode === 8 || e.keyCode === 46) {
+                $(".selected-shape").remove();
+            }
+        });
+        $(".save").on("click", function () {
+
+            var shapes = [];
+
+            $.each($(".shape"), function () {
+                var current_shape = jQuery.extend({}, shape);
+                current_shape.id = $(this).attr("id");
+                current_shape.shape = $(this).attr("shape");
+                current_shape.position = $(this).position();
+                current_shape.width = $(this).width();
+                current_shape.height = $(this).height();
+                current_shape.color = $(this).css('border-color');
+                shapes.push(current_shape);
+            });
+
+
+            window.localStorage.setItem('shapes', JSON.stringify(shapes));
+
+        });
+    }
+
+    function reconstructShapes() {
+        var shapesJSON = window.localStorage.getItem('shapes');
+        if (shapesJSON !== undefined) {
+            var shapes = JSON.parse(shapesJSON);
+
+            $.each(shapes, function (index, shape ) {
+                var createShapeDOM = makeShape({
+                    id: shape.id,
+                    shape:  shape.shape,
+                    container: $container,
+                    color: shape.color,
+                    position: shape.position,
+                    width: shape.width,
+                    height: shape.height
+                });
+
+            });
+
+
+        }
+
+
+    }
+
+    function setColor($shape, color) {
+        $shape.css({
+            "border-color": color
+        });
+        if ($shape.hasClass('line') || $shape.hasClass('arrow')) {
+            $shape.css({
+                "background-color": color
+            });
+
+            if ($shape.hasClass('arrow')) {
+                $("<style>.arrow:after{border-left-color : " + color + "!important;}</style>").appendTo('head');
+            }
+
+        }
+
+    }
+
+    function getCurrentShape() {
+        return $(".shape.selected-shape");
+    }
+
+    function getSelectedColor() {
+        return $("#colorpicker").spectrum("get").toHexString();
+    }
+
+
+    function removeSelected() {
+        $container.children().removeClass('selected-shape');
+    }
+
+    function makeShape(params) {
+
+        var shape = params.shape;
+        var id = params.id;
+        var container = params.container;
+
+        var $shape_html = $("<div shape='" + shape + "' id='" + id + "' class='shape " + shape + "' ></div>");
+
+        debugger;
+        setColor($shape_html, params.color);
+
+        $shape_html.css({
+            left: params.position.left + "px",
+            top: params.position.top + "px",
+            width: params.width,
+            height: params.height
+        });
+
+
+        var created_shape_DOM = container.append($shape_html).find("#" + id);
+
+        var draggable_settings = {
+            containment: ".proofing-container",
+            stop: function (event, ui) {
+                console.log(ui);
+            }
+        };
+
+
+        var resizeable_settings = {
+            handles: "all",
+            containment: ".proofing-container",
+            helper: "ui-resizable-helper",
+            stop: function (event, ui) {
+                console.log(ui);
+            }
+        };
+
+        if (shape === 'line' || shape === 'arrow') {
+            resizeable_settings.maxHeight = 2;
+            resizeable_settings.handles = "e,w";
+
+        }
+        created_shape_DOM
+                .draggable(
+                        draggable_settings
+                )
+                .resizable(
+                        resizeable_settings
+                );
+
+
+        created_shape_DOM.rotatable();
+        return created_shape_DOM;
+    }
+
+
+    activate();
+
+
+</script>
+
+</body>
+</html>
